@@ -136,7 +136,8 @@ class BdtScrap:
                         parent.score += 25
 
             if (len(paragraph.renderContents()) > 10):
-                parent.score += 1
+                if(parent.score != None):
+                    parent.score += 1
 
             # you can add more rules here!
 
@@ -179,7 +180,8 @@ if(__name__ == "__main__"):
     import time
     t1 = time.time()
     obj = BdtScrap(
-        "http://www.bbc.com/portuguese/brasil-38755138",
+        "https://olhardigital.uol.com.br/fique_seguro/noticia/" +
+        "-golpe-da-fonte-coloca-usuarios-do-chrome-em-risco/66359",
         deep=1)
 
     print("Total time %s" % (time.time() - t1))
