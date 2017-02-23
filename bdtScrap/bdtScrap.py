@@ -73,48 +73,36 @@ class BdtScrap:
             ".*post.*|.*hentry.*|.*entry.*|.*content.*|.*text.*|.*body.*")
         self.soup = self._topParent()
 
-        if(deep == 0):
-            self.meaningfulText = self.soup.get_text(" ")
-            self.meaningfulText = self.meaningfulText.split("\n")
-            n = len(self.meaningfulText)
-            tmp = [self.meaningfulText[i] for i in range(0, n - 2)
-                   if self.meaningfulText[i].isspace() is False
-                   ]
-            tmp += [self.meaningfulText[i] for i in range(n - 2, n)
-                    if ((self.meaningfulText[i].isspace() is False)
-                        and (self.meaningfulText[i - 2].isspace() is False)
-                        )]
-            self.meaningfulText = '\n'.join(tmp)
+        self._finalResult(deep=deep)
 
-        if(deep == 1):
+    def _finalResult(self, deep):
+
+        if(deep > 0):
             self._second_clean()
-            self.meaningfulText = self.soup.get_text(" ")
-            self.meaningfulText = self.meaningfulText.split("\n")
-            n = len(self.meaningfulText)
-            tmp = [self.meaningfulText[i] for i in range(0, n - 2)
-                   if self.meaningfulText[i].isspace() is False
-                   ]
-            tmp += [self.meaningfulText[i] for i in range(n - 2, n)
-                    if ((self.meaningfulText[i].isspace() is False)
-                        and (self.meaningfulText[i - 2].isspace() is False)
-                        )]
-            self.meaningfulText = '\n'.join(tmp)
+
+        self.meaningfulText = self.soup.get_text(" ")
+        self.meaningfulText = self.meaningfulText.split("\n")
+        n = len(self.meaningfulText)
+        tmp = []
+
+        if(deep <= 1):
+
+            tmp = filter(lambda x: x.isspace() is False, self.meaningfulText)
 
         if(deep > 1):
-            self._second_clean()
-            self.meaningfulText = self.soup.get_text(" ")
-            self.meaningfulText = self.meaningfulText.split("\n")
-            n = len(self.meaningfulText)
+
             tmp = [self.meaningfulText[i] for i in range(0, n - 2)
                    if((self.meaningfulText[i].isspace() is False)
                       and (self.meaningfulText[i + 2].isspace() is False)
                       )
                    ]
+
             tmp += [self.meaningfulText[i] for i in range(n - 2, n)
                     if ((self.meaningfulText[i].isspace() is False)
                         and (self.meaningfulText[i - 2].isspace() is False)
                         )]
-            self.meaningfulText = '\n'.join(tmp)
+
+        self.meaningfulText = '\n'.join(tmp)
 
     def _first_clean(self):
         [s.extract()
@@ -191,7 +179,7 @@ if(__name__ == "__main__"):
     import time
     t1 = time.time()
     obj = BdtScrap(
-        "http://www.bbc.com/portuguese/geral-39053134",
+        "http://www.bbc.com/portuguese/brasil-38755138",
         deep=1)
 
     print("Total time %s" % (time.time() - t1))
