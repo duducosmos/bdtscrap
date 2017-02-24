@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from bs4 import Comment
 from bs4 import Tag
 import requests
+import codecs
 
 
 """
@@ -47,7 +48,13 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 class BdtScrap:
 
-    def __init__(self, link=None, deep=0, html=None):
+    def __init__(self, link=None, deep=0, minCaracter=100, html=None):
+        """
+        link: The news link
+        deep: Number of parents considered to get the news
+        html: a local file name
+        minCaracter: The minimal of character by parent to consider as part of the news.
+        """
 
         header = {
             'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:32.0) Gecko/20100101 Firefox/32.0', }
@@ -59,9 +66,11 @@ class BdtScrap:
                 self.html = ' '.join(list(htf.readlines()))
 
         if(html is None and link is not None):
-            self.html = requests.get(link, headers=header).text
+            self.html = requests.get(
+                link, headers=header).content.decode('utf-8')
 
         self.meaningfulText = None
+        #self.html = toUnicode(self.html)
 
         try:
             self.soup = BeautifulSoup(self.html,  'html.parser')
@@ -71,16 +80,14 @@ class BdtScrap:
         self._first_clean()
 
         self.NEGATIVE = re.compile(
-            ".*comment.*|.*meta.*|.*footer.*|.*foot.*|.*cloud.*|.*head.*|.*hide.*")
+            ".*comment.*|.*meta.*|.*footer.*|.*foot.*|.*cloud.*|.*head.*|.*hide.*|.*nav.*")
         self.POSITIVE = re.compile(
-            ".*post.*|.*hentry.*|.*entry.*|.*content.*|.*text.*|.*body.*|.*news.*|.*News.*")
-        self.soup = self._topParent()
+            ".*post.*|.*hentry.*|.*entry.*|.*content.*|.*text.*|.*body.*|.*news.*|.*News.*|.*article.*")
+        self.soup = self._topParent(deep=deep)
 
-        self.try_extrat = 0
+        self._finalResult(deep=deep, minCaracter=minCaracter)
 
-        self._finalResult(deep=deep)
-
-    def _finalResult(self, deep):
+    def _finalResult(self, deep, minCaracter):
 
         if(deep > 0):
             self._second_clean()
@@ -88,40 +95,18 @@ class BdtScrap:
         self.meaningfulText = self.soup.get_text(" ")
         self.meaningfulText = self.meaningfulText.split("\n")
         n = len(self.meaningfulText)
-        tmp = []
+        #tmp = []
 
-        if(deep <= 1):
+        # tmp = [self.meaningfulText[i] for i in range(0, n - 3)
+        #       if(self.meaningfulText[i + 3].isspace() is False)
+        #       ]
+        # tmp += [self.meaningfulText[i] for i in range(n - 3, n)
+        #        if (self.meaningfulText[i].isspace() is False)]
 
-            tmp = filter(lambda x: x.isspace() is False, self.meaningfulText)
-
-        if(deep > 1):
-
-            tmp = [self.meaningfulText[i] for i in range(0, n - 2)
-                   if((self.meaningfulText[i].isspace() is False)
-                      and (self.meaningfulText[i + 2].isspace() is False)
-                      )
-                   ]
-
-            tmp += [self.meaningfulText[i] for i in range(n - 2, n)
-                    if ((self.meaningfulText[i].isspace() is False)
-                        and (self.meaningfulText[i - 2].isspace() is False)
-                        )]
-
-        if(len(tmp) < 4 and deep > 2):
-            print("trying again")
-            if(self.try_extrat == 0):
-                self._tryOnDiv(deep)
+        tmp = filter(lambda x: x.isspace() is False and len(x)
+                     > minCaracter, self.meaningfulText)
 
         self.meaningfulText = '\n'.join(tmp)
-
-    def _tryOnDiv(self, deep):
-        self.try_extrat = 1
-        self.soup = BeautifulSoup(self.html,  'html.parser')
-
-        self._first_clean()
-        self.soup = self._topParent('section')
-
-        self._finalResult(deep)
 
     def _first_clean(self):
         [s.extract()
@@ -131,7 +116,7 @@ class BdtScrap:
     def getMeaningfulText(self):
         return self.meaningfulText
 
-    def _topParent(self, tag="p"):
+    def _topParent(self, tag="p", deep=0):
         tParent = None
         parents = []
 
@@ -147,6 +132,7 @@ class BdtScrap:
                     if (self.NEGATIVE.match(str(parent["class"]))):
                         parent.score -= 50
                     elif (self.POSITIVE.match(str(parent["class"]))):
+
                         parent.score += 25
 
                 if (parent.has_attr("id")):
@@ -156,12 +142,18 @@ class BdtScrap:
                         parent.score += 25
 
             if (len(paragraph.renderContents()) > 10):
-                if(parent.score != None):
-                    parent.score += 1
-
-            # you can add more rules here!
+                if(parent.score == None):
+                    parent.score = 0
+                parent.score += 1
 
         tParent = max(parents, key=lambda x: x.score)
+        if(deep == 2):
+            parents.remove(tParent)
+            if(len(parents) > 0):
+                tParent2 = max(parents, key=lambda x: x.score)
+                newHTML = '<html>' + tParent.prettify() + \
+                    tParent2.prettify() + '</html>'
+                tParent = BeautifulSoup(newHTML,  'html.parser')
         return tParent
 
     def _second_clean(self):
@@ -200,8 +192,8 @@ if(__name__ == "__main__"):
     import time
     t1 = time.time()
     obj = BdtScrap(
-        "http://www.clubedohardware.com.br/noticias/video/amd-revela-detalhes-dos-novos-processadores-ryzen-r7-1800x-r7-1700x-e-r7-1700-r50182/",
-        deep=1)
+        "http://gizmodo.uol.com.br/iphone-7-plus-explodiu-eua/",
+        deep=2)
 
     print("Total time %s" % (time.time() - t1))
     print obj.meaningfulText
