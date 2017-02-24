@@ -8,7 +8,7 @@ import re
 from bs4 import BeautifulSoup
 from bs4 import Comment
 from bs4 import Tag
-import urllib
+import requests
 
 
 """
@@ -49,19 +49,22 @@ class BdtScrap:
 
     def __init__(self, link=None, deep=0, html=None):
 
-        html = html
+        header = {
+            'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:32.0) Gecko/20100101 Firefox/32.0', }
+
+        self.html = html
 
         if(html is not None):
             with open(html, 'r') as htf:
-                html = ' '.join(list(htf.readlines()))
+                self.html = ' '.join(list(htf.readlines()))
 
         if(html is None and link is not None):
-            html = urllib.urlopen(link).read()
+            self.html = requests.get(link, headers=header).text
 
         self.meaningfulText = None
 
         try:
-            self.soup = BeautifulSoup(html,  'html.parser')
+            self.soup = BeautifulSoup(self.html,  'html.parser')
         except:
             raise NameError("html parser problem")
 
@@ -70,8 +73,10 @@ class BdtScrap:
         self.NEGATIVE = re.compile(
             ".*comment.*|.*meta.*|.*footer.*|.*foot.*|.*cloud.*|.*head.*|.*hide.*")
         self.POSITIVE = re.compile(
-            ".*post.*|.*hentry.*|.*entry.*|.*content.*|.*text.*|.*body.*")
+            ".*post.*|.*hentry.*|.*entry.*|.*content.*|.*text.*|.*body.*|.*news.*|.*News.*")
         self.soup = self._topParent()
+
+        self.try_extrat = 0
 
         self._finalResult(deep=deep)
 
@@ -102,7 +107,21 @@ class BdtScrap:
                         and (self.meaningfulText[i - 2].isspace() is False)
                         )]
 
+        if(len(tmp) < 4 and deep > 2):
+            print("trying again")
+            if(self.try_extrat == 0):
+                self._tryOnDiv(deep)
+
         self.meaningfulText = '\n'.join(tmp)
+
+    def _tryOnDiv(self, deep):
+        self.try_extrat = 1
+        self.soup = BeautifulSoup(self.html,  'html.parser')
+
+        self._first_clean()
+        self.soup = self._topParent('section')
+
+        self._finalResult(deep)
 
     def _first_clean(self):
         [s.extract()
@@ -112,10 +131,11 @@ class BdtScrap:
     def getMeaningfulText(self):
         return self.meaningfulText
 
-    def _topParent(self):
+    def _topParent(self, tag="p"):
         tParent = None
         parents = []
-        for paragraph in self.soup.findAll("p"):
+
+        for paragraph in self.soup.findAll(tag):
 
             parent = paragraph.parent
 
@@ -180,8 +200,7 @@ if(__name__ == "__main__"):
     import time
     t1 = time.time()
     obj = BdtScrap(
-        "https://olhardigital.uol.com.br/fique_seguro/noticia/" +
-        "-golpe-da-fonte-coloca-usuarios-do-chrome-em-risco/66359",
+        "http://www.clubedohardware.com.br/noticias/video/amd-revela-detalhes-dos-novos-processadores-ryzen-r7-1800x-r7-1700x-e-r7-1700-r50182/",
         deep=1)
 
     print("Total time %s" % (time.time() - t1))
