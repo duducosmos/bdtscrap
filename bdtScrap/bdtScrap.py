@@ -48,13 +48,15 @@ THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 class BdtScrap:
 
-    def __init__(self, link=None, deep=0, minCaracter=100, html=None):
+    def __init__(self, link=None, deep=0, minCaracter=140, html=None):
         """
         link: The news link
         deep: Number of parents considered to get the news
         html: a local file name
         minCaracter: The minimal of character by parent to consider as part of the news.
         """
+
+        self.minCaracter = minCaracter
 
         header = {
             'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:32.0) Gecko/20100101 Firefox/32.0', }
@@ -66,16 +68,28 @@ class BdtScrap:
                 self.html = ' '.join(list(htf.readlines()))
 
         if(html is None and link is not None):
-            self.html = requests.get(
-                link, headers=header).content.decode('utf-8')
+            r = requests.get(
+                link, headers=header)
+
+            try:
+                soup = BeautifulSoup(r.content,  'html.parser')
+                encod = self.get_encoding(soup)
+                print("Page encode %s" % encod)
+                r.encoding = encod
+            except:
+                r.encoding = 'utf-8'
+            self.html = r.content
 
         self.meaningfulText = None
+
         #self.html = toUnicode(self.html)
 
         try:
             self.soup = BeautifulSoup(self.html,  'html.parser')
         except:
             raise NameError("html parser problem")
+
+        self.socialImage = self.get_sociaImage(self.soup)
 
         self._first_clean()
 
@@ -86,6 +100,23 @@ class BdtScrap:
         self.soup = self._topParent(deep=deep)
 
         self._finalResult(deep=deep, minCaracter=minCaracter)
+
+    def get_encoding(self, soup):
+        encod = soup.meta.get('charset')
+        if encod == None:
+            encod = soup.meta.get('content-type')
+            if encod == None:
+                content = soup.meta.get('content')
+                match = re.search('charset=(.*)', content)
+                if match:
+                    encod = match.group(1)
+                else:
+                    raise ValueError('unable to find encoding')
+        return encod
+
+    def get_sociaImage(self, soup):
+        imageLink = soup.find('meta', property="og:image")['content']
+        return imageLink
 
     def _finalResult(self, deep, minCaracter):
 
@@ -141,10 +172,10 @@ class BdtScrap:
                     elif (self.POSITIVE.match(str(parent["id"]))):
                         parent.score += 25
 
-            if (len(paragraph.renderContents()) > 10):
+            if (len(paragraph.renderContents()) > self.minCaracter):
                 if(parent.score == None):
                     parent.score = 0
-                parent.score += 1
+                parent.score += 15
 
         tParent = max(parents, key=lambda x: x.score)
         if(deep == 2):
