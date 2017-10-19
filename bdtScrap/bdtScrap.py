@@ -73,6 +73,7 @@ class BdtScrap:
                 link, headers=header)
 
 
+
             try:
                 soup = BeautifulSoup(r.content,  'html.parser')
                 encod = self.get_encoding(soup)
@@ -95,14 +96,17 @@ class BdtScrap:
 
         self.recursion_after_clean = 0
 
-
-
         self.NEGATIVE = re.compile(
-            ".*comment.*|.*meta.*|.*footer.*|.*foot.*|.*cloud.*|.*head.*|.*hide.*|.*nav.*|.*form.*|")
-        self.POSITIVE = re.compile(
-            ".*post.*|.*hentry.*|.*entry.*|.*content.*|.*text.*|.*body.*|.*news.*|.*News.*|.*article.*|.*section.*|.*materia*.|.*conteudo*.")
-        self.soup = self._topParent(deep=deep)
+            ".*comment.*|.*meta.*|.*footer.*|.*foot.*|.*cloud.*|" +
+            ".*head.*|.*hide.*|.*nav.*|.*form.*|"
+            )
 
+        self.POSITIVE = re.compile(
+            ".*post.*|.*hentry.*|.*entry.*|.*content.*|.*text.*|.*body.*|" +
+            ".*news.*|.*News.*|.*article.*|.*section.*|.*materia*.|" +
+            ".*conteudo*.|.*conteudoMateria*.|.*container*."
+            )
+        self.soup = self._topParent(deep=deep)
         self._finalResult(deep=deep, minCaracter=minCaracter)
 
 
@@ -152,7 +156,7 @@ class BdtScrap:
     def _first_clean(self):
         [s.extract()
          for s in self.soup(['style', 'script', '[document]', 'head', 'title',
-                             'code', 'link'])]
+                             'code', 'link', "a"])]
 
     def getMeaningfulText(self):
         return self.meaningfulText
@@ -198,6 +202,7 @@ class BdtScrap:
                 self.recursion_after_clean += 1
                 self.soup = BeautifulSoup(self.html, 'html.parser')
                 parents = self._score_parent(tag=tag)
+
 
         tParent = max(parents, key=lambda x: x.score)
         if(deep == 2):
