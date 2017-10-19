@@ -59,7 +59,8 @@ class BdtScrap:
         self.minCaracter = minCaracter
 
         header = {
-            'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:32.0) Gecko/20100101 Firefox/32.0', }
+            'user-agent':
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.9; rv:32.0) Gecko/20100101 Firefox/32.0', }
 
         self.html = html
 
@@ -70,6 +71,7 @@ class BdtScrap:
         if(html is None and link is not None):
             r = requests.get(
                 link, headers=header)
+
 
             try:
                 soup = BeautifulSoup(r.content,  'html.parser')
@@ -89,17 +91,23 @@ class BdtScrap:
         except:
             raise NameError("html parser problem")
 
-        self.socialImage = self.get_sociaImage(self.soup)
-
         self._first_clean()
 
+        self.recursion_after_clean = 0
+
+
+
         self.NEGATIVE = re.compile(
-            ".*comment.*|.*meta.*|.*footer.*|.*foot.*|.*cloud.*|.*head.*|.*hide.*|.*nav.*")
+            ".*comment.*|.*meta.*|.*footer.*|.*foot.*|.*cloud.*|.*head.*|.*hide.*|.*nav.*|.*form.*|")
         self.POSITIVE = re.compile(
-            ".*post.*|.*hentry.*|.*entry.*|.*content.*|.*text.*|.*body.*|.*news.*|.*News.*|.*article.*")
+            ".*post.*|.*hentry.*|.*entry.*|.*content.*|.*text.*|.*body.*|.*news.*|.*News.*|.*article.*|.*section.*|.*materia*.|.*conteudo*.")
         self.soup = self._topParent(deep=deep)
 
         self._finalResult(deep=deep, minCaracter=minCaracter)
+
+
+
+        #self.socialImage = self.get_sociaImage()
 
     def get_encoding(self, soup):
         encod = soup.meta.get('charset')
@@ -114,7 +122,9 @@ class BdtScrap:
                     raise ValueError('unable to find encoding')
         return encod
 
-    def get_sociaImage(self, soup):
+    def get_sociaImage(self):
+        soup = BeautifulSoup(self.html,  'html.parser')
+
         imageLink = soup.find('meta', property="og:image")['content']
         return imageLink
 
@@ -147,35 +157,47 @@ class BdtScrap:
     def getMeaningfulText(self):
         return self.meaningfulText
 
-    def _topParent(self, tag="p", deep=0):
-        tParent = None
+
+    def _score_parent(self, tag="p"):
         parents = []
-
         for paragraph in self.soup.findAll(tag):
-
             parent = paragraph.parent
 
-            if (parent not in parents):
+            if parent not in parents:
                 parents.append(parent)
                 parent.score = 0
 
-                if (parent.has_attr("class")):
-                    if (self.NEGATIVE.match(str(parent["class"]))):
+                if parent.has_attr("class"):
+                    if self.NEGATIVE.match(str(parent["class"])):
                         parent.score -= 50
-                    elif (self.POSITIVE.match(str(parent["class"]))):
+                    elif self.POSITIVE.match(str(parent["class"])):
 
                         parent.score += 25
 
-                if (parent.has_attr("id")):
-                    if (self.NEGATIVE.match(str(parent["id"]))):
+
+                if parent.has_attr("id"):
+                    if self.NEGATIVE.match(str(parent["id"])):
                         parent.score -= 50
-                    elif (self.POSITIVE.match(str(parent["id"]))):
+                    elif self.POSITIVE.match(str(parent["id"])):
                         parent.score += 25
 
-            if (len(paragraph.renderContents()) > self.minCaracter):
-                if(parent.score == None):
+            if len(paragraph.renderContents()) > self.minCaracter:
+                if parent.score is None:
                     parent.score = 0
                 parent.score += 15
+
+        return parents
+
+    def _topParent(self, tag="p", deep=0):
+        tParent = None
+
+        parents = self._score_parent(tag=tag)
+
+        if not parents:
+            if self.recursion_after_clean == 0:
+                self.recursion_after_clean += 1
+                self.soup = BeautifulSoup(self.html, 'html.parser')
+                parents = self._score_parent(tag=tag)
 
         tParent = max(parents, key=lambda x: x.score)
         if(deep == 2):
@@ -217,7 +239,7 @@ if(__name__ == "__main__"):
     #"vale-reverte-prejuizo-tem-lucro-liquido-de-133-bilhoes-em-2016-20967908"
 
     #"http://www.jb.com.br/ciencia-e-tecnologia/noticias/2017/02/22/" +
-    #"nasa-descobre-tres-planetas-em" +
+    #"nasa-descobre-tres-planetas-em" +NewSC
     #"-zona-habitavel-de-estrela-proxima-a-terra/"
 
     import time
@@ -227,4 +249,4 @@ if(__name__ == "__main__"):
         deep=2)
 
     print("Total time %s" % (time.time() - t1))
-    print obj.meaningfulText
+    print(obj.meaningfulText)
